@@ -2,7 +2,7 @@ import Controls, { IControlsOptions } from "./controls";
 import Raycaster, { EVENTS } from "./utils/raycaster";
 import { emitter, unbindAll } from "./utils/emmiter";
 import { DEFAULT_HANDLE_GROUP_NAME } from "./controls/handles";
-import {Camera, Mesh, Object3D} from "three";
+import {Camera, Matrix4, Mesh, Object3D} from "three";
 
 /**
  * The ControlsManager provides helper functions to create Controls instances
@@ -13,6 +13,7 @@ import {Camera, Mesh, Object3D} from "three";
 export default class ControlsManager extends Object3D {
   private objects: { [id: number]: Object3D } = {};
   private controls: { [id: number]: Controls } = {};
+  private beforeTransformListener: (matrix: Matrix4, matrixWorld: Matrix4) => boolean;
   private eventListeners: {
     [event in EVENTS]: Array<
       (object: Object3D | null, handleName: DEFAULT_HANDLE_GROUP_NAME | string) => void
@@ -32,6 +33,7 @@ export default class ControlsManager extends Object3D {
   constructor(private camera: Camera, private domElement: HTMLElement) {
     super();
     this.rayCaster = new Raycaster(this.camera, this.domElement, this.controls);
+    this.beforeTransformListener = () => true;
     this.listenToEvents();
   }
 
@@ -58,7 +60,8 @@ export default class ControlsManager extends Object3D {
       if (controls === null) {
         return;
       }
-      controls.processDrag({ point, handle, dragRatio });
+      const beforeTransform = this.beforeTransformListener
+      controls.processDrag({ point, handle, dragRatio, beforeTransform });
       this.eventListeners[EVENTS.DRAG].map(callback => {
         callback(controls.object, handle.name);
       });
@@ -114,6 +117,10 @@ export default class ControlsManager extends Object3D {
     this.add(controls);
     return controls;
   };
+
+  public setBeforeTransform = (listener: (matrix: Matrix4, matrixWorld: Matrix4) => boolean): void => {
+    this.beforeTransformListener = listener;
+  }
 
   /**
    * Adds an event listener. Note that there is another method `addEventListener`

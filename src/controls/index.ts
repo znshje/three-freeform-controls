@@ -18,7 +18,7 @@ import {
   TranslationGroup
 } from "./handles";
 import RotationEye from "./handles/rotation-eye";
-import {Camera, Group, MathUtils, Mesh, Object3D, Quaternion, Vector3} from "three";
+import {Camera, Group, MathUtils, Mesh, Object3D, Quaternion, Vector3, Matrix4} from "three";
 
 export enum ANCHOR_MODE {
   /**
@@ -554,9 +554,12 @@ export default class Controls extends Group {
   /**
    * @hidden
    */
-  processDrag = (args: { point: Vector3; handle: IHandle; dragRatio?: number }) => {
+  processDrag = (args: { point: Vector3; handle: IHandle; dragRatio?: number; beforeTransform?: (matrix: Matrix4, matrixWorld: Matrix4) => boolean }) => {
     const { point, handle, dragRatio = 1 } = args;
     const k = Math.exp(-this.dampingFactor * Math.abs(dragRatio ** 3));
+    const tempPosition = this.position.clone();
+    const tempRotation = this.objectTargetQuaternion.clone();
+    let rotation = false;
 
     if (handle instanceof TranslationGroup) {
       this.deltaPosition.copy(point).sub(this.dragIncrementalStartPoint);
@@ -569,15 +572,19 @@ export default class Controls extends Group {
         .copy(this.normalizedHandleParallelVectorCache)
         .multiplyScalar(this.isDampingEnabled ? k * delta : delta);
 
-      this.position.copy(this.getLimitedTranslation(this.deltaPosition));
+      // this.position.copy(this.getLimitedTranslation(this.deltaPosition));
+      tempPosition.copy(this.getLimitedTranslation(this.deltaPosition));
     } else if (handle instanceof PickGroup || handle instanceof PickPlaneGroup) {
       this.deltaPosition
         .copy(point)
         .sub(this.dragIncrementalStartPoint)
         .multiplyScalar(this.isDampingEnabled ? k : 1);
 
-      this.position.copy(this.getLimitedTranslation(this.deltaPosition));
+      // this.position.copy(this.getLimitedTranslation(this.deltaPosition));
+      tempPosition.copy(this.getLimitedTranslation(this.deltaPosition));
     } else {
+      rotation = true;
+
       this.touch1
         .copy(this.dragIncrementalStartPoint)
         .sub(this.objectWorldPosition)
@@ -589,13 +596,32 @@ export default class Controls extends Group {
         .normalize();
 
       this.handleTargetQuaternion.setFromUnitVectors(this.touch1, this.touch2);
-      if (this.mode === ANCHOR_MODE.FIXED) {
-        this.detachHandleUpdateQuaternionAttach(handle, this.handleTargetQuaternion);
-      }
+      // if (this.mode === ANCHOR_MODE.FIXED) {
+      //   this.detachHandleUpdateQuaternionAttach(handle, this.handleTargetQuaternion);
+      // }
     }
 
-    this.objectTargetQuaternion.premultiply(this.handleTargetQuaternion);
-    this.dragIncrementalStartPoint.copy(point);
+    // new matrix
+    tempRotation.premultiply(this.handleTargetQuaternion);
+    const newMatrix = new Matrix4().compose(tempPosition, tempRotation, new Vector3(1, 1, 1));
+    const newMatrixWorld = newMatrix.clone();
+    if (this.object.parent !== null) {
+      newMatrixWorld.multiplyMatrices(this.object.parent.matrixWorld, newMatrix)
+    }
+
+    if (args.beforeTransform && args.beforeTransform(newMatrix, newMatrixWorld)) {
+      console.log('true');
+      
+      this.objectTargetQuaternion.premultiply(this.handleTargetQuaternion);
+      this.dragIncrementalStartPoint.copy(point);
+      this.position.copy(tempPosition);
+
+      if (rotation) {
+        if (this.mode === ANCHOR_MODE.FIXED) {
+          this.detachHandleUpdateQuaternionAttach(handle, this.handleTargetQuaternion);
+        }
+      }
+    }
   };
 
   private getLimitedTranslation = (translation: Vector3) => {
