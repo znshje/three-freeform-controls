@@ -18,7 +18,7 @@ import {
   TranslationGroup
 } from "./handles";
 import RotationEye from "./handles/rotation-eye";
-import {Camera, Group, MathUtils, Mesh, Object3D, Quaternion, Vector3, Matrix4} from "three";
+import { Camera, Group, MathUtils, Mesh, Object3D, Quaternion, Vector3, Matrix4, OrthographicCamera, PerspectiveCamera } from "three";
 
 export enum ANCHOR_MODE {
   /**
@@ -138,6 +138,11 @@ export interface IControlsOptions {
     y: boolean;
     z: boolean;
   };
+  /**
+   * The size of control gizmos.
+   * @default 1.0
+   */
+  size?: number;
 }
 
 /**
@@ -242,6 +247,10 @@ export default class Controls extends Group {
   private readonly pickPlaneSizeScale: number;
   private translationLimit?: TranslationLimit | false = false;
   private translationAnchor: Vector3 | null = null;
+  private worldPosition: Vector3 = new Vector3();
+  private cameraPosition: Vector3 = new Vector3();
+  private nouseQuaternion: Quaternion = new Quaternion();
+  private nouseScale: Vector3 = new Vector3();
 
   /**
    * enables damping for the controls
@@ -610,8 +619,6 @@ export default class Controls extends Group {
     }
 
     if (args.beforeTransform && args.beforeTransform(newMatrix, newMatrixWorld)) {
-      console.log('true');
-      
       this.objectTargetQuaternion.premultiply(this.handleTargetQuaternion);
       this.dragIncrementalStartPoint.copy(point);
       this.position.copy(tempPosition);
@@ -725,6 +732,23 @@ export default class Controls extends Group {
    */
   updateMatrixWorld = (force?: boolean) => {
     this.object.updateMatrixWorld(force);
+
+    let factor = 1;
+
+    this.object.matrixWorld.decompose(this.worldPosition, this.nouseQuaternion, this.nouseScale)
+    this.camera.matrixWorld.decompose(this.cameraPosition, this.nouseQuaternion, this.nouseScale)
+
+    if (this.camera instanceof OrthographicCamera) {
+
+      factor = (this.camera.top - this.camera.bottom) / this.camera.zoom;
+
+    } else if (this.camera instanceof PerspectiveCamera) {
+
+      factor = this.worldPosition.distanceTo(this.cameraPosition) * Math.min(1.9 * Math.tan(Math.PI * this.camera.fov / 360) / this.camera.zoom, 7);
+
+    }
+
+    this.scale.set(1, 1, 1).multiplyScalar(factor * (this.options.size ?? 1) / 8);
 
     this.object.getWorldPosition(this.objectWorldPosition);
     const parent = this.object.parent;
