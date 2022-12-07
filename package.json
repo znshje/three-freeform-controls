@@ -6,6 +6,7 @@
   "main": "dist/three-freeform-controls.js",
   "module": "dist/three-freeform-controls.js",
   "typings": "dist/types/index.d.ts",
+  "type": "module",
   "files": [
     "dist"
   ],

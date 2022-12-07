@@ -1,3 +1,4 @@
+import { DEFAULT_HIGHLIGHT_COLOR_ADD } from "src/utils/constants";
 import {
 
 MeshBasicMaterial
@@ -6,11 +7,11 @@ import Octahedron from "../../primitives/octahedron";
 import { PickGroup } from "./index";
 
 export default class Pick extends PickGroup {
-  private readonly octahedron: Octahedron;
+  public readonly octahedron: Octahedron;
 
   constructor() {
     super();
-    this.octahedron = new Octahedron("white");
+    this.octahedron = new Octahedron("#e0e0e0");
     this.add(this.octahedron);
   }
 
@@ -25,4 +26,13 @@ export default class Pick extends PickGroup {
     const octahedronMaterial = this.octahedron.material as MeshBasicMaterial;
     octahedronMaterial.color.set(color);
   };
+
+  public setHighLightColor(highlight: boolean): void {
+    const octahedronMaterial = this.octahedron.material as MeshBasicMaterial;
+    octahedronMaterial.color.set("#e0e0e0");
+    if (highlight) {
+      octahedronMaterial.color.addScalar(DEFAULT_HIGHLIGHT_COLOR_ADD);
+    }
+    octahedronMaterial.needsUpdate = true;
+  }
 }

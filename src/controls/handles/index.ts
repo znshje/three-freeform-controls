@@ -81,6 +81,8 @@ export abstract class HandleGroup extends Group {
    * @param color - hex code for the color
    */
   public abstract setColor(color: string): void;
+
+  public abstract setHighLightColor(highlight: boolean): void;
 }
 
 /**

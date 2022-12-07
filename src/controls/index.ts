@@ -727,6 +727,10 @@ export default class Controls extends Group {
     return interactiveObjects;
   }
 
+  public getHandles(): Set<IHandle> {
+    return this.handles;
+  }
+
   /**
    * @hidden
    */

@@ -1,7 +1,7 @@
 import { emitter } from "./emmiter";
 import Controls from "../controls";
 import PickPlane from "../controls/handles/pick-plane";
-import { PICK_PLANE_OPACITY } from "./constants";
+import { DEFAULT_CONTROLS_OPACITY, PICK_PLANE_OPACITY } from "./constants";
 import { IHandle, PickGroup, RotationGroup, TranslationGroup } from "../controls/handles";
 import RotationEye from "../controls/handles/rotation-eye";
 import { addEventListener, getPointFromEvent, removeEventListener } from "./helper";
@@ -16,8 +16,12 @@ import {
   Quaternion, Scene,
   Vector2,
   Vector3,
-  Raycaster as ThreeRaycaster
+  Raycaster as ThreeRaycaster,
+  Material
 } from "three";
+import Translation from "src/controls/handles/translation";
+import Rotation from "src/controls/handles/rotation";
+import Pick from "src/controls/handles/pick";
 
 export enum EVENTS {
   DRAG_START = "DRAG_START",
@@ -65,6 +69,10 @@ export default class Raycaster extends ThreeRaycaster {
       capture: true
     });
     addEventListener(this.domElement, ["pointerup", "touchend"], this.pointerUpListener, {
+      passive: false,
+      capture: true
+    });
+    addEventListener(this.domElement, ["pointermove", "touchmove"], this.pointerHoverListener, {
       passive: false,
       capture: true
     });
@@ -244,6 +252,63 @@ export default class Raycaster extends ThreeRaycaster {
     this.setFromCamera(this.mouse, this.camera);
   };
 
+  private detectHoverObjects = () => {
+    const interactiveObjects: Object3D[] = [];
+    Object.values(this.controls).map(controls => {
+      interactiveObjects.push(...controls.getInteractiveObjects());
+    });
+    let activeHandle = this.resolveHandleGroup(this.intersectObjects(interactiveObjects, true)[0]);
+
+    // deactivate other controls
+    Object.values(this.controls).forEach(x => {
+      x.getHandles().forEach(handle => {
+        handle.setHighLightColor(false);
+        if (handle instanceof PickPlane) {
+          this.setMaterialOpacity((handle as PickPlane).plane.material, PICK_PLANE_OPACITY.INACTIVE);
+        } else if (handle instanceof Translation) {
+          this.setMaterialOpacity((handle as Translation).cone.material, DEFAULT_CONTROLS_OPACITY);
+          this.setMaterialOpacity((handle as Translation).line.material, DEFAULT_CONTROLS_OPACITY);
+        } else if (handle instanceof Rotation) {
+          this.setMaterialOpacity((handle as Rotation).ring.material, DEFAULT_CONTROLS_OPACITY);
+        } else if (handle instanceof RotationEye) {
+          this.setMaterialOpacity((handle as RotationEye).ring.material, DEFAULT_CONTROLS_OPACITY);
+        } else if (handle instanceof Pick) {
+          this.setMaterialOpacity((handle as Pick).octahedron.material, DEFAULT_CONTROLS_OPACITY);
+        }
+      })
+    });
+
+    if (activeHandle?.parent) {
+      activeHandle.setHighLightColor(true);
+      if (activeHandle instanceof PickPlane) {
+        this.setMaterialOpacity((activeHandle as PickPlane).plane.material, PICK_PLANE_OPACITY.ACTIVE);
+      } else if (activeHandle instanceof Translation) {
+        this.setMaterialOpacity((activeHandle as Translation).cone.material, 1);
+      } else if (activeHandle instanceof Rotation) {
+        this.setMaterialOpacity((activeHandle as Rotation).ring.material, 1);
+      } else if (activeHandle instanceof RotationEye) {
+        this.setMaterialOpacity((activeHandle as RotationEye).ring.material, 1);
+      } else if (activeHandle instanceof Pick) {
+        this.setMaterialOpacity((activeHandle as Pick).octahedron.material, 1);
+      }
+    }
+  }
+
+  private pointerHoverListener = (event: MouseEvent | TouchEvent) => {
+    const point = getPointFromEvent(event);
+    if (!point) {
+      return;
+    }
+    const { clientX, clientY } = point;
+
+    this.setRayDirection(clientX, clientY);
+    
+    if (this.activeHandle === null && this.activePlane === null) {
+      // detect hover
+      this.detectHoverObjects();
+    }
+  };
+
   private pointerMoveListener = (event: MouseEvent | TouchEvent) => {
     if (this.activeHandle === null || this.activePlane === null) {
       return;
@@ -331,6 +396,18 @@ export default class Raycaster extends ThreeRaycaster {
     }
   }
 
+  private setMaterialOpacity(material: Material | Material[], opacity: number) {
+    if (Array.isArray(material)) {
+      material.map(m => {
+        m.opacity = opacity;
+        m.needsUpdate = true;
+      });
+    } else {
+      material.opacity = opacity;
+      material.needsUpdate = true;
+    }
+  }
+
   private resolveHandleGroup = (intersectedObject: Intersection | undefined) => {
     if (intersectedObject === undefined) {
       return null;
@@ -349,6 +426,9 @@ export default class Raycaster extends ThreeRaycaster {
       capture: true
     });
     removeEventListener(this.domElement, ["pointerup", "touchend"], this.pointerUpListener, {
+      capture: true
+    });
+    removeEventListener(this.domElement, ["pointermove", "touchmove"], this.pointerHoverListener, {
       capture: true
     });
   };

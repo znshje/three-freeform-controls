@@ -6,18 +6,22 @@ import {
 import {
   DEFAULT_COLOR_RING,
   DEFAULT_RING_NUM_POINTS,
-  DEFAULT_RING_RADIUS
+  DEFAULT_RING_RADIUS,
+  DEFAULT_HIGHLIGHT_COLOR_ADD
 } from "../../utils/constants";
 import Line from "../../primitives/line";
 import Octahedron from "../../primitives/octahedron";
 import { RotationGroup } from "./index";
+import Torus from "src/primitives/torus";
 
 export default class Rotation extends RotationGroup {
-  private readonly ring: Line;
-  private readonly handlebar: Octahedron;
+  public readonly ring: Line;
+  private readonly color: string;
+  private readonly handlebar: Torus;
 
   constructor(color = DEFAULT_COLOR_RING, ringRadius = DEFAULT_RING_RADIUS) {
     super();
+    this.color = color;
     const ringNumberOfPoints = DEFAULT_RING_NUM_POINTS;
     const ringGeometry = new BufferGeometry();
     const angle = (2 * Math.PI) / ringNumberOfPoints;
@@ -27,9 +31,9 @@ export default class Rotation extends RotationGroup {
     }
     ringGeometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
     this.ring = new Line(color, ringGeometry);
-    this.handlebar = new Octahedron(color);
-    this.handlebar.position.y = ringRadius;
     this.add(this.ring);
+
+    this.handlebar = new Torus(ringRadius)
     this.add(this.handlebar);
   }
 
@@ -42,8 +46,17 @@ export default class Rotation extends RotationGroup {
 
   public setColor = (color: string) => {
     const ringMaterial = this.ring.material as MeshBasicMaterial;
-    const handlebarMaterial = this.handlebar.material as MeshBasicMaterial;
+    // const handlebarMaterial = this.handlebar.material as MeshBasicMaterial;
     ringMaterial.color.set(color);
-    handlebarMaterial.color.set(color);
+    // handlebarMaterial.color.set(color);
   };
+
+  public setHighLightColor(highlight: boolean): void {
+    const ringMaterial = this.ring.material as MeshBasicMaterial;
+    ringMaterial.color.set(this.color);
+    if (highlight) {
+      ringMaterial.color.addScalar(DEFAULT_HIGHLIGHT_COLOR_ADD);
+    }
+    ringMaterial.needsUpdate = true;
+  }
 }

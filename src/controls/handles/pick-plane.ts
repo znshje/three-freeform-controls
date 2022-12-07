@@ -7,7 +7,8 @@ import Plane from "../../primitives/plane";
 import {
   DEFAULT_COLOR_PLANE,
   DEFAULT_PLANE_HEIGHT,
-  DEFAULT_PLANE_WIDTH
+  DEFAULT_PLANE_WIDTH,
+  DEFAULT_HIGHLIGHT_COLOR_ADD
 } from "../../utils/constants";
 import Line from "../../primitives/line";
 import { PickPlaneGroup } from "./index";
@@ -29,6 +30,7 @@ export default class PickPlane extends PickPlaneGroup {
    * @hidden
    */
   public readonly crossY: Line;
+  private readonly color: string;
 
   constructor(
     color = DEFAULT_COLOR_PLANE,
@@ -36,6 +38,7 @@ export default class PickPlane extends PickPlaneGroup {
     height = DEFAULT_PLANE_HEIGHT
   ) {
     super();
+    this.color = color;
     const boundaryGeometry = new BufferGeometry();
     const crossXGeometry = new BufferGeometry();
     const crossYGeometry = new BufferGeometry();
@@ -61,8 +64,8 @@ export default class PickPlane extends PickPlaneGroup {
     ], 3 ));
 
     this.boundary = new Line(color, boundaryGeometry);
-    this.crossX = new Line("black", crossXGeometry);
-    this.crossY = new Line("black", crossYGeometry);
+    this.crossX = new Line(color, crossXGeometry);
+    this.crossY = new Line(color, crossYGeometry);
     this.plane = new Plane(color, width, height);
 
     this.add(this.plane);
@@ -84,4 +87,17 @@ export default class PickPlane extends PickPlaneGroup {
     planeMaterial.color.set(color);
     boundaryMaterial.color.set(color);
   };
+
+  public setHighLightColor(highlight: boolean): void {
+    const planeMaterial = this.plane.material as MeshBasicMaterial;
+    const boundaryMaterial = this.boundary.material as MeshBasicMaterial;
+    planeMaterial.color.set(this.color);
+    boundaryMaterial.color.set(this.color);
+    if (highlight) {
+      planeMaterial.color.addScalar(DEFAULT_HIGHLIGHT_COLOR_ADD);
+      boundaryMaterial.color.addScalar(DEFAULT_HIGHLIGHT_COLOR_ADD);
+    }
+    planeMaterial.needsUpdate = true;
+    boundaryMaterial.needsUpdate = true;
+  }
 }
